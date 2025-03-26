@@ -6,6 +6,8 @@ package components;
 
 import User.DBConnection;
 import java.awt.Image;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.awt.image.BufferedImage;
@@ -39,7 +41,7 @@ public class ProductPanel extends javax.swing.JPanel {
     public ProductPanel() {
         initComponents();
         loadUsersIntoDropdown();
-        loadProductTable();
+        loadProductTable("");
         btnHidden.setVisible(false);
         productTable.addMouseListener(new MouseAdapter() {
             @Override
@@ -82,8 +84,8 @@ public class ProductPanel extends javax.swing.JPanel {
         proName = new javax.swing.JLabel();
         jLabel3 = new javax.swing.JLabel();
         jLabel4 = new javax.swing.JLabel();
-        jTextField2 = new javax.swing.JTextField();
-        jButton2 = new javax.swing.JButton();
+        searchField = new javax.swing.JTextField();
+        btnFilter = new javax.swing.JButton();
         jLabel5 = new javax.swing.JLabel();
         jScrollPane3 = new javax.swing.JScrollPane();
         productTable = new javax.swing.JTable();
@@ -229,11 +231,11 @@ public class ProductPanel extends javax.swing.JPanel {
         jLabel4.setText("Description");
         jLabel4.setToolTipText("");
 
-        jButton2.setFont(new java.awt.Font("Comic Sans MS", 1, 12)); // NOI18N
-        jButton2.setText("Filter");
-        jButton2.addActionListener(new java.awt.event.ActionListener() {
+        btnFilter.setFont(new java.awt.Font("Comic Sans MS", 1, 12)); // NOI18N
+        btnFilter.setText("Filter");
+        btnFilter.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
-                jButton2ActionPerformed(evt);
+                btnFilterActionPerformed(evt);
             }
         });
 
@@ -300,9 +302,9 @@ public class ProductPanel extends javax.swing.JPanel {
                             .addComponent(jScrollPane3, javax.swing.GroupLayout.PREFERRED_SIZE, 884, javax.swing.GroupLayout.PREFERRED_SIZE))
                         .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
                     .addGroup(jPanel1Layout.createSequentialGroup()
-                        .addComponent(jTextField2)
+                        .addComponent(searchField)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                        .addComponent(jButton2, javax.swing.GroupLayout.PREFERRED_SIZE, 80, javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addComponent(btnFilter, javax.swing.GroupLayout.PREFERRED_SIZE, 80, javax.swing.GroupLayout.PREFERRED_SIZE)
                         .addGap(21, 21, 21))))
             .addGroup(jPanel1Layout.createSequentialGroup()
                 .addComponent(jPanel3, javax.swing.GroupLayout.PREFERRED_SIZE, 890, javax.swing.GroupLayout.PREFERRED_SIZE)
@@ -327,8 +329,8 @@ public class ProductPanel extends javax.swing.JPanel {
                 .addComponent(jPanel3, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
                 .addGroup(jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                    .addComponent(jTextField2, javax.swing.GroupLayout.PREFERRED_SIZE, 30, javax.swing.GroupLayout.PREFERRED_SIZE)
-                    .addComponent(jButton2, javax.swing.GroupLayout.PREFERRED_SIZE, 30, javax.swing.GroupLayout.PREFERRED_SIZE))
+                    .addComponent(searchField, javax.swing.GroupLayout.PREFERRED_SIZE, 30, javax.swing.GroupLayout.PREFERRED_SIZE)
+                    .addComponent(btnFilter, javax.swing.GroupLayout.PREFERRED_SIZE, 30, javax.swing.GroupLayout.PREFERRED_SIZE))
                 .addGap(18, 18, 18)
                 .addComponent(jScrollPane3, javax.swing.GroupLayout.PREFERRED_SIZE, 279, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addContainerGap(10, Short.MAX_VALUE))
@@ -376,9 +378,14 @@ public class ProductPanel extends javax.swing.JPanel {
         // TODO add your handling code here:
     }//GEN-LAST:event_userIdActionPerformed
 
-    private void jButton2ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jButton2ActionPerformed
+    private void btnFilterActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnFilterActionPerformed
         // TODO add your handling code here:
-    }//GEN-LAST:event_jButton2ActionPerformed
+        btnFilter.addActionListener((ActionEvent e) -> {
+            String query = searchField.getText().trim(); // Get the text from the search field
+            loadProductTable(query); // Call the method to filter products
+        });
+
+    }//GEN-LAST:event_btnFilterActionPerformed
 
     private void saveBtnActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_saveBtnActionPerformed
         saveProduct();
@@ -459,7 +466,7 @@ public class ProductPanel extends javax.swing.JPanel {
                 JOptionPane.showMessageDialog(this, "✅ Product saved successfully!");
                 clearForm();
             }
-            loadProductTable();
+            loadProductTable("");
         } catch (SQLException e) {
             JOptionPane.showMessageDialog(this, "❌ Error: " + e.getMessage());
         }
@@ -470,6 +477,7 @@ public class ProductPanel extends javax.swing.JPanel {
         description.setText("");
         price.setText("");
         userId.setSelectedIndex(0); // Reset dropdown
+        lblImagePreview.setIcon(null);
     }
 
     private void loadUsersIntoDropdown() {
@@ -498,7 +506,7 @@ public class ProductPanel extends javax.swing.JPanel {
         }
     }
 
-    private void loadProductTable() {
+    private void loadProductTable(String query) {
         DefaultTableModel model = (DefaultTableModel) productTable.getModel();
         model.setRowCount(0); // Clear existing rows
         Connection conn = null;
@@ -508,7 +516,30 @@ public class ProductPanel extends javax.swing.JPanel {
             String sql = "SELECT p.id, p.name, p.description, p.image, p.price, p.created_at, u.username,u.firstname,u.lastname, u.email "
                     + "FROM product_tbl p "
                     + "JOIN user_tbl u ON p.user_id = u.id";
+
+            boolean isNumeric = false;
+            double priceValue = 0.0;
+            if (query != null && !query.trim().isEmpty()) {
+                try {
+                    priceValue = Double.parseDouble(query);
+                    isNumeric = true;
+                    sql += " WHERE p.price = ?";
+                } catch (NumberFormatException e) {
+                    sql += " WHERE p.name LIKE ? OR p.description LIKE ?";
+                }
+            }
             PreparedStatement pstmt = conn.prepareStatement(sql);
+
+            // ✅ Bind parameters
+            if (query != null && !query.trim().isEmpty()) {
+                if (isNumeric) {
+                    pstmt.setDouble(1, priceValue);
+                } else {
+                    pstmt.setString(1, "%" + query + "%");
+                    pstmt.setString(2, "%" + query + "%");
+                }
+            }
+
             ResultSet rs = pstmt.executeQuery();
 
             while (rs.next()) {
@@ -561,6 +592,36 @@ public class ProductPanel extends javax.swing.JPanel {
         }
     }
 
+//    private void filterProducts(String query) {
+//        DefaultTableModel model = (DefaultTableModel) productTable.getModel();
+//        model.setRowCount(0); // Clear existing rows
+//
+//        // Database query to fetch filtered products based on the query
+//        try (Connection conn = DBConnection.openDBConnection()) {
+//            String sql = "SELECT p.id, p.name, p.description, p.price, p.created_at, u.username "
+//                    + "FROM product_tbl p "
+//                    + "JOIN user_tbl u ON p.user_id = u.id "
+//                    + "WHERE p.name LIKE ? OR p.description LIKE ?";
+//            PreparedStatement pstmt = conn.prepareStatement(sql);
+//            pstmt.setString(1, "%" + query + "%"); // Search by product name
+//            pstmt.setString(2, "%" + query + "%"); // Search by product description
+//            ResultSet rs = pstmt.executeQuery();
+//
+//            while (rs.next()) {
+//                int id = rs.getInt("id");
+//                String name = rs.getString("name");
+//                String pDescription = rs.getString("description");
+//                double pPrice = rs.getDouble("price");
+//                String createdAt = rs.getString("created_at");
+//                String username = rs.getString("username");
+//
+//                // Add matching products to the table
+//                model.addRow(new Object[]{id, name, pDescription, pPrice, createdAt, username});
+//            }
+//        } catch (SQLException e) {
+//            JOptionPane.showMessageDialog(this, "Error filtering products: " + e.getMessage());
+//        }
+//    }
     private void tableRowClicked(java.awt.event.MouseEvent evt) throws SQLException {
         int selectedRow = productTable.getSelectedRow();
         int selectedColumn = productTable.columnAtPoint(evt.getPoint());
@@ -585,7 +646,7 @@ public class ProductPanel extends javax.swing.JPanel {
                     int result = pstmt.executeUpdate();
                     if (result > 0) {
                         JOptionPane.showMessageDialog(this, "Product deleted successfully!");
-                        loadProductTable();
+                        loadProductTable("");
                     } else {
                         JOptionPane.showMessageDialog(this, "Deletion failed. No rows affected.");
                     }
@@ -641,9 +702,9 @@ public class ProductPanel extends javax.swing.JPanel {
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JButton btnBrowseImage;
+    private javax.swing.JButton btnFilter;
     private javax.swing.JTextField btnHidden;
     private javax.swing.JTextField description;
-    private javax.swing.JButton jButton2;
     private javax.swing.JFileChooser jFileChooser1;
     private javax.swing.JLabel jLabel1;
     private javax.swing.JLabel jLabel3;
@@ -657,7 +718,6 @@ public class ProductPanel extends javax.swing.JPanel {
     private javax.swing.JScrollPane jScrollPane2;
     private javax.swing.JScrollPane jScrollPane3;
     private javax.swing.JTable jTable1;
-    private javax.swing.JTextField jTextField2;
     private javax.swing.JLabel lblImage;
     private javax.swing.JLabel lblImagePreview;
     private javax.swing.JTextField price;
@@ -665,6 +725,7 @@ public class ProductPanel extends javax.swing.JPanel {
     private javax.swing.JTextField productName;
     private javax.swing.JTable productTable;
     private javax.swing.JButton saveBtn;
+    private javax.swing.JTextField searchField;
     private javax.swing.JComboBox<String> userId;
     // End of variables declaration//GEN-END:variables
 
